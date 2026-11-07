@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FUTURE TAIWAN | 公民議題島 Civic Heart Island</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Three.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- TWEEN.js for Smooth Camera Animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    canvas {
+      outline: none;
+    }
+    /* Custom Scrollbar for Sidebar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(107, 114, 128, 0.7);
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .glass-dark {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    /* 3D Label HTML Marker */
+    .poi-label {
+      transform: translate(-50%, -100%);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    .poi-label:hover {
+      transform: translate(-50%, -110%) scale(1.08);
+      z-index: 40 !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 antialiased h-screen w-screen overflow-hidden select-none">
+
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+  <!-- HTML 3D Floating Labels Overlay Container -->
+  <div id="labels-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="absolute top-4 left-4 right-4 md:right-[420px] z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+    <!-- Brand Tag -->
+    <div class="pointer-events-auto glass-panel px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-black text-lg shadow-md shadow-emerald-500/20">
+        民
+      </div>
+      <div>
+        <h1 class="text-base font-extrabold tracking-tight text-slate-900 leading-none">FUTURE TAIWAN</h1>
+        <p class="text-xs font-semibold text-emerald-600 tracking-wider mt-0.5">公民議題政策島 HEART</p>
+      </div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="pointer-events-auto glass-panel p-1.5 rounded-2xl shadow-lg flex items-center gap-1.5 text-xs font-medium">
+      <!-- Time / Lighting Preset Buttons -->
+      <div class="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+        <button id="btn-day" onclick="setLighting('day')" class="px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 bg-white text-slate-800 shadow-sm">
+          <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-500"></i> 日景
+        </button>
+        <button id="btn-dusk" onclick="setLighting('dusk')" class="px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 text-slate-600 hover:text-slate-900">
+          <i data-lucide="sunset" class="w-3.5 h-3.5 text-orange-500"></i> 黃昏
+        </button>
+        <button id="btn-night" onclick="setLighting('night')" class="px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 text-slate-600 hover:text-slate-900">
+          <i data-lucide="moon" class="w-3.5 h-3.5 text-indigo-400"></i> 夜景
+        </button>
+      </div>
+
+      <div class="h-4 w-px bg-slate-300 mx-0.5"></div>
+
+      <!-- View Preset Controls -->
+      <button onclick="resetCamera()" class="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1" title="重置視角">
+        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">全景</span>
+      </button>
+
+      <button id="btn-birds-eye" onclick="toggleBirdsEye()" class="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1" title="鳥瞰視角">
+        <i data-lucide="eye" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">鳥瞰</span>
+      </button>
+
+      <button onclick="toggleLabels()" id="btn-toggle-labels" class="p-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center gap-1">
+        <i data-lucide="tag" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">標籤</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Right Civic Index Sidebar -->
+  <aside id="sidebar" class="absolute top-0 right-0 bottom-0 w-full md:w-[400px] z-30 glass-panel shadow-2xl flex flex-col transition-transform duration-300 transform translate-x-0">
+    <!-- Sidebar Header -->
+    <div class="p-5 border-b border-slate-200/60 pb-4">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs font-bold uppercase tracking-widest text-emerald-600">The Civic Index</span>
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium" id="total-count-badge">16 項政策主題</span>
+      </div>
+      <h2 class="text-2xl font-black text-slate-900 tracking-tight">攜手改變，連起來。</h2>
+      <p class="text-xs text-slate-500 mt-1">選一項公民議題，走進探索未來的城市藍圖。</p>
+
+      <!-- Search Input -->
+      <div class="relative mt-4">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input 
+          type="text" 
+          id="search-input"
+          oninput="handleSearch(this.value)"
+          placeholder="搜尋議題關鍵字、提案內容..." 
+          class="w-full pl-10 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-800 placeholder-slate-400 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 text-sm transition-all"
+        />
+      </div>
+
+      <!-- Categories Pill Bar -->
+      <div class="flex gap-1.5 overflow-x-auto pt-3 pb-1 no-scrollbar text-xs font-medium">
+        <button onclick="filterCategory('all')" class="category-btn active bg-slate-900 text-white px-3 py-1.5 rounded-lg shrink-0 transition-all">全部議題</button>
+        <button onclick="filterCategory('環境與永續')" class="category-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shrink-0 transition-all">環境永續</button>
+        <button onclick="filterCategory('社會福利與照顧')" class="category-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shrink-0 transition-all">社福照顧</button>
+        <button onclick="filterCategory('居住與城市發展')" class="category-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shrink-0 transition-all">居住城鄉</button>
+        <button onclick="filterCategory('交通與基礎建設')" class="category-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shrink-0 transition-all">基建交通</button>
+        <button onclick="filterCategory('民主與參與')" class="category-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shrink-0 transition-all">民主參與</button>
+      </div>
+    </div>
+
+    <!-- Policy List -->
+    <div id="policy-list" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <!-- Generated via JS -->
+    </div>
+
+    <!-- Bottom Actions Footbar -->
+    <div class="p-4 border-t border-slate-200/60 bg-white/50 backdrop-blur-sm flex items-center justify-between">
+      <div class="text-xs text-slate-500 font-medium">
+        已有 <span id="total-upvotes" class="text-emerald-600 font-bold text-sm">4,820</span> 位市民聯署參與
+      </div>
+      <button onclick="openProposeModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i> 提出公民提案
+      </button>
+    </div>
+  </aside>
+
+  <!-- Detailed Issue Slide-Over Modal Panel -->
+  <div id="detail-panel" class="fixed inset-y-0 left-0 md:left-auto right-0 md:w-[460px] z-40 bg-white/95 backdrop-blur-2xl shadow-2xl transition-transform duration-300 transform translate-x-full flex flex-col border-l border-slate-200">
+    <div class="relative p-6 border-b border-slate-100">
+      <button onclick="closeDetailPanel()" class="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-2 mb-2">
+        <span id="detail-category-badge" class="px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-100 text-emerald-700">類別</span>
+        <span id="detail-id" class="text-xs font-mono font-bold text-slate-400">ID-01</span>
+      </div>
+
+      <h2 id="detail-title" class="text-2xl font-black text-slate-900 leading-tight">議題標題</h2>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <!-- Status Badge & Target -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+          <div class="text-xs text-slate-400 font-medium">推進狀態</div>
+          <div id="detail-status" class="text-sm font-bold text-emerald-600 mt-1 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 進行中
+          </div>
+        </div>
+        <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+          <div class="text-xs text-slate-400 font-medium">目前連署人數</div>
+          <div id="detail-upvotes" class="text-sm font-bold text-slate-900 mt-1">
+            0 人
+          </div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div>
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">議題與政策摘要</h3>
+        <p id="detail-description" class="text-slate-600 leading-relaxed text-sm">
+          詳細敘述說明...
+        </p>
+      </div>
+
+      <!-- Key Indicators / Impact Metrics -->
+      <div>
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">關鍵效益與預估指標</h3>
+        <div class="grid grid-cols-3 gap-2" id="detail-metrics">
+          <!-- Metric cards injected here -->
+        </div>
+      </div>
+
+      <!-- Island Map Location Hint -->
+      <div class="bg-emerald-50/60 rounded-2xl p-4 border border-emerald-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="map-pin" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-emerald-900">3D 島嶼對應區塊</div>
+            <div id="detail-island-name" class="text-xs text-emerald-700 font-medium">第 1 區 · 中央島</div>
+          </div>
+        </div>
+        <button onclick="zoomToActiveDetail()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-xl shadow-sm transition-all flex items-center gap-1">
+          <i data-lucide="navigation" class="w-3.5 h-3.5"></i> 鏡頭對焦
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel Footer Action Buttons -->
+    <div class="p-5 border-t border-slate-100 bg-slate-50 flex gap-3">
+      <button id="detail-upvote-btn" onclick="triggerUpvote()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm">
+        <i data-lucide="thumbs-up" class="w-4 h-4"></i> 聯署支持提案
+      </button>
+      <button onclick="sharePolicy()" class="p-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl transition-all" title="分享議題">
+        <i data-lucide="share-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Proposal Modal Prompt -->
+  <div id="propose-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative animate-in fade-in zoom-in-95 duration-200">
+      <button onclick="closeProposeModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="file-plus-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">提出公民新提案</h3>
+          <p class="text-xs text-slate-500">提案將於審核後新增至 3D 議題島嶼中</p>
+        </div>
+      </div>
+
+      <form onsubmit="submitProposal(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">議題主題名稱</label>
+          <input required type="text" id="prop-title" placeholder="例如：社區共享雨水回收系統" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">所屬領域</label>
+          <select id="prop-category" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="環境與永續">環境與永續</option>
+            <option value="社會福利與照顧">社會福利與照顧</option>
+            <option value="居住與城市發展">居住與城市發展</option>
+            <option value="交通與基礎建設">交通與基礎建設</option>
+            <option value="民主與參與">民主與參與</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">提案詳細內容說明</label>
+          <textarea required id="prop-desc" rows="3" placeholder="請描述提案欲解決之現狀問題與預期帶來的社會效益..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeProposeModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">取消</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md shadow-emerald-600/20">發起提案連署</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Feedback Alert -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none">
+    <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400" id="toast-icon"></i>
+    <span id="toast-msg" class="text-sm font-semibold">成功發送！</span>
+  </div>
+
+  <!-- MAIN SCRIPT -->
+  <script>
+    // ==========================================
+    // 1. DATA DEFINITIONS (16 CIVIC ISSUES)
+    // ==========================================
+    const CIVIC_ISSUES = [
+      {
+        id: "CIVIC-01",
+        title: "淨零碳排與綠能共好區",
+        category: "環境與永續",
+        islandId: 0,
+        pos: { x: -6, z: -4 },
+        upvotes: 842,
+        status: "研擬階段",
+        desc: "推動公共建築全面鋪設太陽能屋頂，並於社區建立分散式儲能設施與微電網系統，打造高韌性減碳示範社區。",
+        metrics: [
+          { label: "預估減碳", val: "1.2萬噸/年" },
+          { label: "涵蓋率", val: "68%" },
+          { label: "預算金額", val: "2.4億" }
+        ]
+      },
+      {
+        id: "CIVIC-02",
+        title: "都市微森林與降溫綠廊",
+        category: "環境與永續",
+        islandId: 0,
+        pos: { x: -4, z: -7 },
+        upvotes: 620,
+        status: "執行中",
+        desc: "運用宮脅造林法於密集市區營造口袋微型森林，改善熱島效應，提升都市生物多樣性與雨水涵養能力。",
+        metrics: [
+          { label: "降低體感", val: "-2.5°C" },
+          { label: "新增綠地", val: "45公頃" },
+          { label: "生物多樣性", val: "+40%" }
+        ]
+      },
+      {
+        id: "CIVIC-03",
+        title: "全齡友善社區照顧網絡",
+        category: "社會福利與照顧",
+        islandId: 1,
+        pos: { x: 7, z: -5 },
+        upvotes: 915,
+        status: "執行中",
+        desc: "整合托育、長照與日間照顧設施，營造跨世代共融空間，並導入智慧照護感測器以預防長者跌倒與意外。",
+        metrics: [
+          { label: "受益家庭", val: "12,000戶" },
+          { label: "照護人力", val: "+350人" },
+          { label: "滿意度", val: "94%" }
+        ]
+      },
+      {
+        id: "CIVIC-04",
+        title: "育兒隨行卡與喘息服務",
+        category: "社會福利與照顧",
+        islandId: 1,
+        pos: { x: 5, z: -2 },
+        upvotes: 530,
+        status: "研擬階段",
+        desc: "發放數位育兒點數，可自由兌換特約托育、親子臨託與文教場館門票，提供家長彈性多元的喘息支援。",
+        metrics: [
+          { label: "每戶補助", val: "1.5萬/年" },
+          { label: "合作機構", val: "180+" },
+          { label: "申請率", val: "88%" }
+        ]
+      },
+      {
+        id: "CIVIC-05",
+        title: "青年包租代管與居住正義",
+        category: "居住與城市發展",
+        islandId: 2,
+        pos: { x: -7, z: 5 },
+        upvotes: 1240,
+        status: "擴大實施",
+        desc: "鼓勵空屋釋出轉為社會住宅，政府提供修繕補助與包租代管服務，保障青年與弱勢族群安全合理的居住權利。",
+        metrics: [
+          { label: "釋出空屋", val: "3,500戶" },
+          { label: "租金優惠", val: "7折-85折" },
+          { label: "媒合率", val: "91%" }
+        ]
+      },
+      {
+        id: "CIVIC-06",
+        title: "老舊複合大樓防災耐震補強",
+        category: "居住與城市發展",
+        islandId: 2,
+        pos: { x: -4, z: 8 },
+        upvotes: 410,
+        status: "研擬階段",
+        desc: "簡化公辦都更與耐震評估檢測流程，由專業公會輔導老舊社區自主整建維護，強化面對極端地候與地震之防護力。",
+        metrics: [
+          { label: "目標輔導", val: "500棟" },
+          { label: "補助上限", val: "75%" },
+          { label: "評估完成", val: "320案" }
+        ]
+      },
+      {
+        id: "CIVIC-07",
+        title: "人本綠色行人徒步網",
+        category: "交通與基礎建設",
+        islandId: 3,
+        pos: { x: 6, z: 6 },
+        upvotes: 1105,
+        status: "執行中",
+        desc: "全面檢討學區與商圈人行道實體劃設，擴大行車路口退縮與通學步道，打造無障礙且安全流暢的步行空間。",
+        metrics: [
+          { label: "改善路段", val: "120公里" },
+          { label: "事故降低", val: "-35%" },
+          { label: "行人空間", val: "+25%" }
+        ]
+      },
+      {
+        id: "CIVIC-08",
+        title: "共享電動運具與最後一哩路",
+        category: "交通與基礎建設",
+        islandId: 3,
+        pos: { x: 3, z: 9 },
+        upvotes: 750,
+        status: "擴大實施",
+        desc: "擴建輕軌與捷運站週邊的公共自行車與電動輔助車站點，達到捷運站出口3分鐘即有共享運具之便利網絡。",
+        metrics: [
+          { label: "新增站點", val: "240處" },
+          { label: "每日騎乘", val: "8.5萬次" },
+          { label: "周轉率", val: "4.8次/車" }
+        ]
+      },
+      {
+        id: "CIVIC-09",
+        title: "數位參與式預算自治平台",
+        category: "民主與參與",
+        islandId: 4,
+        pos: { x: 0, z: 0 },
+        upvotes: 690,
+        status: "線上運作中",
+        desc: "導入區塊鏈技術開放市民提案與直接投票決定基層公共建設預算運用，實現透明、即時且可信賴的基層民主。",
+        metrics: [
+          { label: "分配預算", val: "8,000萬" },
+          { label: "投票人數", val: "4.2萬人" },
+          { label: "提案通過", val: "38案" }
+        ]
+      },
+      {
+        id: "CIVIC-10",
+        title: "青年模擬議會與公共審議",
+        category: "民主與參與",
+        islandId: 4,
+        pos: { x: 1, z: -3 },
+        upvotes: 380,
+        status: "研擬階段",
+        desc: "定期舉辦青年公民陪審團與政策共創工作坊，讓16-25歲青年族群的建議能直接進入市政決策白皮書參考。",
+        metrics: [
+          { label: "參與青年", val: "1,500人" },
+          { label: "採納方案", val: "14項" },
+          { label: "審議場次", val: "24場" }
+        ]
+      }
+    ];
+
+    // Category Color Mapping (Pastel Tone for 3D UI)
+    const CATEGORY_COLORS = {
+      "環境與永續": { bg: "#10b981", text: "text-emerald-700", badge: "bg-emerald-100" },
+      "社會福利與照顧": { bg: "#f59e0b", text: "text-amber-700", badge: "bg-amber-100" },
+      "居住與城市發展": { bg: "#3b82f6", text: "text-blue-700", badge: "bg-blue-100" },
+      "交通與基礎建設": { bg: "#8b5cf6", text: "text-purple-700", badge: "bg-purple-100" },
+      "民主與參與": { bg: "#ec4899", text: "text-pink-700", badge: "bg-pink-100" }
+    };
+
+    // Island Base Configs
+    const ISLAND_CONFIGS = [
+      { name: "永續綠能島", center: { x: -5, z: -5 }, color: 0x34d399 },
+      { name: "社福照護島", center: { x: 6, z: -4 }, color: 0xfbbf24 },
+      { name: "城鄉居住島", center: { x: -6, z: 6 }, color: 0x60a5fa },
+      { name: "基建交通島", center: { x: 5, z: 7 }, color: 0xa78bfa },
+      { name: "民主核心島", center: { x: 0, z: -1 }, color: 0xf472b6 }
+    ];
+
+    // Active State Variables
+    let activeCategory = 'all';
+    let activeSearchQuery = '';
+    let selectedIssueId = null;
+    let showLabels = true;
+
+    // ==========================================
+    // 2. THREE.JS 3D SCENE SETUP
+    // ==========================================
+    let scene, camera, renderer, controls;
+    let oceanMesh, lightingGroup, dirLight, hemiLight, ambientLight;
+    const clickableObjects = [];
+    const issueMeshMap = new Map();
+    const poiElementsMap = new Map();
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+
+      // Scene Setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xdbeafe);
+      scene.fog = new THREE.FogExp2(0xdbeafe, 0.015);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(22, 24, 28);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      container.appendChild(renderer.domElement);
+
+      // Orbit Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't go below horizon
+      controls.minDistance = 8;
+      controls.maxDistance = 60;
+      controls.target.set(0, 0, 0);
+
+      // Lighting Setup
+      lightingGroup = new THREE.Group();
+      scene.add(lightingGroup);
+
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      lightingGroup.add(ambientLight);
+
+      hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.4);
+      hemiLight.position.set(0, 50, 0);
+      lightingGroup.add(hemiLight);
+
+      dirLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
+      dirLight.position.set(30, 45, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048;
+      dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 100;
+      const d = 25;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      lightingGroup.add(dirLight);
+
+      // Build World Elements
+      createOcean();
+      buildIslands();
+      buildIssuesPoints();
+
+      // Listeners
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+      // Start Loop
+      animate();
+    }
+
+    // Dynamic Ocean Shader Mesh
+    function createOcean() {
+      const oceanGeo = new THREE.PlaneGeometry(300, 300, 32, 32);
+      const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        roughness: 0.2,
+        metalness: 0.1,
+        flatShading: true
+      });
+      oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+      oceanMesh.rotation.x = -Math.PI / 2;
+      oceanMesh.position.y = -0.6;
+      oceanMesh.receiveShadow = true;
+      scene.add(oceanMesh);
+    }
+
+    // Helper: Hexagon Cylinder Generator
+    function createHexTile(radius, height, colorHex) {
+      const hexGeo = new THREE.CylinderGeometry(radius, radius, height, 6);
+      const hexMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        roughness: 0.6,
+        flatShading: true
+      });
+      const mesh = new THREE.Mesh(hexGeo, hexMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+
+    // Construct Low-Poly Islands
+    function buildIslands() {
+      const islandGroup = new THREE.Group();
+
+      ISLAND_CONFIGS.forEach((config, idx) => {
+        const center = config.center;
+
+        // Central Base Hex Tile
+        const baseHex = createHexTile(3.5, 1.2, config.color);
+        baseHex.position.set(center.x, 0, center.z);
+        islandGroup.add(baseHex);
+
+        // Surround with smaller sub-hex tiles to form low-poly island shape
+        const subTileOffsets = [
+          { x: 2.6, z: 1.5, r: 2.2, h: 0.9 },
+          { x: -2.6, z: 1.5, r: 2.0, h: 0.8 },
+          { x: 0, z: -3.0, r: 2.3, h: 1.0 },
+          { x: -2.5, z: -2.0, r: 1.8, h: 0.7 },
+          { x: 2.8, z: -1.8, r: 2.1, h: 0.9 },
+          { x: 0, z: 3.2, r: 1.9, h: 0.75 }
+        ];
+
+        subTileOffsets.forEach(off => {
+          const subHex = createHexTile(off.r, off.h, config.color);
+          subHex.position.set(center.x + off.x, (off.h - 1.2)/2, center.z + off.z);
+          islandGroup.add(subHex);
+        });
+
+        // Add Decorative Features (Trees, Wind turbines, Small Houses)
+        addIslandDecorations(islandGroup, center, idx);
+      });
+
+      scene.add(islandGroup);
+    }
+
+    // Add Low-poly Procedural Decor (Trees, Wind Turbines, Solar Panels)
+    function addIslandDecorations(group, center, islandIdx) {
+      // Add Trees
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2;
+        const rad = 1.8 + Math.random() * 1.5;
+        const tx = center.x + Math.cos(ang) * rad;
+        const tz = center.z + Math.sin(ang) * rad;
+
+        // Low poly Tree Trunk + Foliage Cone
+        const trunkGeo = new THREE.CylinderGeometry(0.08, 0.12, 0.6, 5);
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.set(tx, 0.8, tz);
+
+        const folGeo = new THREE.ConeGeometry(0.45, 1.0, 5);
+        const folMat = new THREE.MeshStandardMaterial({ color: 0x15803d, flatShading: true });
+        const fol = new THREE.Mesh(folGeo, folMat);
+        fol.position.set(tx, 1.4, tz);
+        fol.castShadow = true;
+
+        group.add(trunk);
+        group.add(fol);
+      }
+
+      // Wind Turbines for Environment Island (Idx 0)
+      if (islandIdx === 0) {
+        const turbineX = center.x - 2.5;
+        const turbineZ = center.z - 2.5;
+        const poleGeo = new THREE.CylinderGeometry(0.06, 0.1, 3.0, 6);
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0 });
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.set(turbineX, 1.5, turbineZ);
+        group.add(pole);
+
+        // Rotating Blades Group
+        const bladeGroup = new THREE.Group();
+        bladeGroup.position.set(turbineX, 3.0, turbineZ + 0.08);
+
+        for (let b = 0; b < 3; b++) {
+          const bladeGeo = new THREE.BoxGeometry(0.1, 1.0, 0.02);
+          const bladeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+          const blade = new THREE.Mesh(bladeGeo, bladeMat);
+          blade.rotation.z = (b * Math.PI * 2) / 3;
+          blade.position.y = 0.4;
+          bladeGroup.add(blade);
+        }
+        group.add(bladeGroup);
+
+        // Animate wind turbine rotation
+        bladeGroup.userData = { isTurbine: true };
+      }
+    }
+
+    // Build Interactive 3D Civic Topic Nodes
+    function buildIssuesPoints() {
+      const labelContainer = document.getElementById('labels-container');
+
+      CIVIC_ISSUES.forEach((issue) => {
+        // 3D Visual Mesh Object (Low-poly Building Block with Flag Indicator)
+        const nodeGroup = new THREE.Group();
+        nodeGroup.position.set(issue.pos.x, 0.6, issue.pos.z);
+
+        // Base Building Box
+        const bldGeo = new THREE.BoxGeometry(0.9, 1.2, 0.9);
+        const colorHex = CATEGORY_COLORS[issue.category]?.bg || "#10b981";
+        const bldMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(colorHex),
+          roughness: 0.4,
+          flatShading: true
+        });
+        const bld = new THREE.Mesh(bldGeo, bldMat);
+        bld.position.y = 0.6;
+        bld.castShadow = true;
+        bld.receiveShadow = true;
+        nodeGroup.add(bld);
+
+        // Floating Indicator Ring
+        const ringGeo = new THREE.RingGeometry(0.6, 0.75, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(colorHex),
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.8
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.02;
+        nodeGroup.add(ring);
+
+        // Store reference & enable raycasting
+        bld.userData = { issueId: issue.id };
+        clickableObjects.push(bld);
+        issueMeshMap.set(issue.id, nodeGroup);
+
+        scene.add(nodeGroup);
+
+        // Create HTML POI Marker Label Overlay
+        const labelEl = document.createElement('div');
+        labelEl.className = 'poi-label absolute pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel shadow-lg border border-white/80 transition-opacity duration-300';
+        labelEl.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${colorHex}"></span>
+          <span class="text-xs font-extrabold text-slate-800 whitespace-nowrap">${issue.title}</span>
+        `;
+        labelEl.onclick = (e) => {
+          e.stopPropagation();
+          selectIssue(issue.id, true);
+        };
+        labelContainer.appendChild(labelEl);
+        poiElementsMap.set(issue.id, { element: labelEl, pos: new THREE.Vector3(issue.pos.x, 2.2, issue.pos.z) });
+      });
+    }
+
+    // ==========================================
+    // 3. 3D RENDER LOOP & INTERACTION
+    // ==========================================
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const elapsedTime = clock.getElapsedTime();
+      TWEEN.update();
+
+      // Gentle Ocean Mesh Animation
+      if (oceanMesh) {
+        oceanMesh.position.y = -0.6 + Math.sin(elapsedTime * 1.2) * 0.05;
+      }
+
+      // Rotate Turbines
+      scene.traverse((obj) => {
+        if (obj.userData && obj.userData.isTurbine) {
+          obj.rotation.z += 0.03;
+        }
+      });
+
+      // Update Orbit Controls
+      controls.update();
+
+      // Project 3D POI Position to HTML Screen Labels
+      updatePOILabels();
+
+      renderer.render(scene, camera);
+    }
+
+    function updatePOILabels() {
+      if (!showLabels) return;
+
+      const tempV = new THREE.Vector3();
+      poiElementsMap.forEach((poiData, issueId) => {
+        tempV.copy(poiData.pos);
+        tempV.project(camera);
+
+        // Check if point is behind camera lens
+        if (tempV.z > 1) {
+          poiData.element.style.opacity = '0';
+          return;
+        }
+
+        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+
+        poiData.element.style.left = `${x}px`;
+        poiData.element.style.top = `${y}px`;
+
+        // Hide if offscreen bounds
+        if (x < -20 || x > window.innerWidth + 20 || y < -20 || y > window.innerHeight + 20) {
+          poiData.element.style.opacity = '0';
+        } else {
+          poiData.element.style.opacity = '1';
+        }
+      });
+    }
+
+    // Raycast Pointer Click on 3D Objects
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function onPointerDown(event) {
+      // Don't register click if dragging orbit camera
+      let isDragging = false;
+      const onPointerMove = () => { isDragging = true; };
+      const onPointerUp = (e) => {
+        renderer.domElement.removeEventListener('pointermove', onPointerMove);
+        renderer.domElement.removeEventListener('pointerup', onPointerUp);
+
+        if (!isDragging) {
+          pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+          pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+          raycaster.setFromCamera(pointer, camera);
+          const intersects = raycaster.intersectObjects(clickableObjects);
+
+          if (intersects.length > 0) {
+            const hitMesh = intersects[0].object;
+            if (hitMesh.userData && hitMesh.userData.issueId) {
+              selectIssue(hitMesh.userData.issueId, true);
+            }
+          }
+        }
+      };
+
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
+      renderer.domElement.addEventListener('pointerup', onPointerUp);
+    }
+
+    // Window Resize Handling
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // ==========================================
+    // 4. CAMERA & VIEW CONTROLS
+    // ==========================================
+    function smoothMoveCamera(targetPos, targetLookAt, duration = 1000) {
+      new TWEEN.Tween(camera.position)
+        .to(targetPos, duration)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+
+      new TWEEN.Tween(controls.target)
+        .to(targetLookAt, duration)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+    }
+
+    function resetCamera() {
+      smoothMoveCamera({ x: 22, y: 24, z: 28 }, { x: 0, y: 0, z: 0 });
+    }
+
+    function toggleBirdsEye() {
+      smoothMoveCamera({ x: 0.1, y: 38, z: 0.1 }, { x: 0, y: 0, z: 0 });
+    }
+
+    function setLighting(mode) {
+      document.getElementById('btn-day').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 text-slate-600 hover:text-slate-900';
+      document.getElementById('btn-dusk').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 text-slate-600 hover:text-slate-900';
+      document.getElementById('btn-night').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 text-slate-600 hover:text-slate-900';
+
+      if (mode === 'day') {
+        document.getElementById('btn-day').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 bg-white text-slate-800 shadow-sm';
+        scene.background.setHex(0xdbeafe);
+        scene.fog.color.setHex(0xdbeafe);
+        dirLight.intensity = 1.2;
+        dirLight.color.setHex(0xfffbeb);
+        ambientLight.intensity = 0.6;
+        oceanMesh.material.color.setHex(0x38bdf8);
+      } else if (mode === 'dusk') {
+        document.getElementById('btn-dusk').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 bg-white text-slate-800 shadow-sm';
+        scene.background.setHex(0xfed7aa);
+        scene.fog.color.setHex(0xfed7aa);
+        dirLight.intensity = 0.9;
+        dirLight.color.setHex(0xf97316);
+        ambientLight.intensity = 0.4;
+        oceanMesh.material.color.setHex(0x0284c7);
+      } else if (mode === 'night') {
+        document.getElementById('btn-night').className = 'px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 bg-white text-slate-800 shadow-sm';
+        scene.background.setHex(0x0f172a);
+        scene.fog.color.setHex(0x0f172a);
+        dirLight.intensity = 0.3;
+        dirLight.color.setHex(0x818cf8);
+        ambientLight.intensity = 0.2;
+        oceanMesh.material.color.setHex(0x0c4a6e);
+      }
+    }
+
+    function toggleLabels() {
+      showLabels = !showLabels;
+      const btn = document.getElementById('btn-toggle-labels');
+      const container = document.getElementById('labels-container');
+      if (showLabels) {
+        container.style.display = 'block';
+        btn.className = 'p-2 rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center gap-1';
+      } else {
+        container.style.display = 'none';
+        btn.className = 'p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors flex items-center gap-1';
+      }
+    }
+
+    // ==========================================
+    // 5. UI APP & SIDEBAR LOGIC
+    // ==========================================
+    function renderPolicyList() {
+      const listContainer = document.getElementById('policy-list');
+      listContainer.innerHTML = '';
+
+      const filtered = CIVIC_ISSUES.filter(issue => {
+        const matchesCategory = activeCategory === 'all' || issue.category === activeCategory;
+        const matchesSearch = issue.title.toLowerCase().includes(activeSearchQuery.toLowerCase()) || 
+                              issue.desc.toLowerCase().includes(activeSearchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
+
+      document.getElementById('total-count-badge').innerText = `${filtered.length} 項議題項目`;
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div class="text-center py-12 text-slate-400">
+            <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="text-sm font-medium">找不到符合的公民議題</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      filtered.forEach(issue => {
+        const categoryStyle = CATEGORY_COLORS[issue.category] || { badge: "bg-slate-100", text: "text-slate-600" };
+        const isSelected = issue.id === selectedIssueId;
+
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-2xl border transition-all cursor-pointer ${
+          isSelected 
+            ? 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md' 
+            : 'bg-white/80 hover:bg-white border-slate-200/80 hover:border-slate-300 shadow-sm'
+        }`;
+        card.onclick = () => selectIssue(issue.id, true);
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide ${categoryStyle.badge} ${categoryStyle.text}">
+              ${issue.category}
+            </span>
+            <span class="text-xs font-bold text-slate-400 flex items-center gap-1">
+              <i data-lucide="thumbs-up" class="w-3 h-3 text-slate-400"></i> ${issue.upvotes}
+            </span>
+          </div>
+          <h3 class="text-sm font-extrabold text-slate-900 leading-snug mb-1">${issue.title}</h3>
+          <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">${issue.desc}</p>
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 pt-2 border-t border-slate-100">
+            <span>狀態：<strong class="text-slate-700">${issue.status}</strong></span>
+            <span class="text-emerald-600 hover:underline flex items-center gap-0.5">探索詳情 <i data-lucide="chevron-right" class="w-3 h-3"></i></span>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+
+      lucide.createIcons();
+      updateTotalUpvotesSum();
+    }
+
+    function selectIssue(issueId, openPanel = true) {
+      selectedIssueId = issueId;
+      const issue = CIVIC_ISSUES.find(i => i.id === issueId);
+      if (!issue) return;
+
+      // Highlight in List
+      renderPolicyList();
+
+      // Smooth Camera Zoom to Mesh Node
+      const targetLookAt = { x: issue.pos.x, y: 0.6, z: issue.pos.z };
+      const targetCamPos = { x: issue.pos.x + 6, y: 7, z: issue.pos.z + 8 };
+      smoothMoveCamera(targetCamPos, targetLookAt, 1200);
+
+      // Bounce Animation on 3D Mesh
+      const meshGroup = issueMeshMap.get(issueId);
+      if (meshGroup) {
+        new TWEEN.Tween(meshGroup.position)
+          .to({ y: 1.4 }, 200)
+          .yoyo(true)
+          .repeat(1)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .start();
+      }
+
+      if (openPanel) {
+        openDetailPanel(issue);
+      }
+    }
+
+    function openDetailPanel(issue) {
+      const panel = document.getElementById('detail-panel');
+      
+      document.getElementById('detail-id').innerText = issue.id;
+      document.getElementById('detail-title').innerText = issue.title;
+      document.getElementById('detail-description').innerText = issue.desc;
+      document.getElementById('detail-upvotes').innerText = `${issue.upvotes.toLocaleString()} 人`;
+      document.getElementById('detail-status').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ${issue.status}`;
+      
+      const categoryStyle = CATEGORY_COLORS[issue.category] || { badge: "bg-emerald-100", text: "text-emerald-700" };
+      const badgeEl = document.getElementById('detail-category-badge');
+      badgeEl.innerText = issue.category;
+      badgeEl.className = `px-2.5 py-1 rounded-md text-xs font-bold ${categoryStyle.badge} ${categoryStyle.text}`;
+
+      document.getElementById('detail-island-name').innerText = `島嶼節點座標 (${issue.pos.x}, ${issue.pos.z})`;
+
+      // Render Metrics Cards
+      const metricsContainer = document.getElementById('detail-metrics');
+      metricsContainer.innerHTML = '';
+      issue.metrics.forEach(m => {
+        metricsContainer.innerHTML += `
+          <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center">
+            <div class="text-[10px] font-semibold text-slate-400 mb-0.5">${m.label}</div>
+            <div class="text-xs font-extrabold text-slate-800">${m.val}</div>
+          </div>
+        `;
+      });
+
+      panel.classList.remove('translate-x-full');
+      lucide.createIcons();
+    }
+
+    function closeDetailPanel() {
+      document.getElementById('detail-panel').classList.add('translate-x-full');
+    }
+
+    function zoomToActiveDetail() {
+      if (selectedIssueId) {
+        selectIssue(selectedIssueId, false);
+      }
+    }
+
+    function triggerUpvote() {
+      if (!selectedIssueId) return;
+      const issue = CIVIC_ISSUES.find(i => i.id === selectedIssueId);
+      if (issue) {
+        issue.upvotes += 1;
+        document.getElementById('detail-upvotes').innerText = `${issue.upvotes.toLocaleString()} 人`;
+        renderPolicyList();
+        showToast(`已成功為「${issue.title}」完成聯署支持！`);
+      }
+    }
+
+    function filterCategory(cat) {
+      activeCategory = cat;
+      document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('bg-slate-900', 'text-white');
+        btn.classList.add('bg-slate-100', 'text-slate-700');
+      });
+      event.target.classList.remove('bg-slate-100', 'text-slate-700');
+      event.target.classList.add('bg-slate-900', 'text-white');
+      renderPolicyList();
+    }
+
+    function handleSearch(val) {
+      activeSearchQuery = val;
+      renderPolicyList();
+    }
+
+    function updateTotalUpvotesSum() {
+      const total = CIVIC_ISSUES.reduce((acc, curr) => acc + curr.upvotes, 0);
+      document.getElementById('total-upvotes').innerText = total.toLocaleString();
+    }
+
+    // Modal & Toast Helpers
+    function openProposeModal() {
+      document.getElementById('propose-modal').classList.remove('hidden');
+    }
+
+    function closeProposeModal() {
+      document.getElementById('propose-modal').classList.add('hidden');
+    }
+
+    function submitProposal(e) {
+      e.preventDefault();
+      const title = document.getElementById('prop-title').value;
+      const category = document.getElementById('prop-category').value;
+      const desc = document.getElementById('prop-desc').value;
+
+      const newId = `CIVIC-${String(CIVIC_ISSUES.length + 1).padStart(2, '0')}`;
+      
+      // Random position on map center
+      const rx = (Math.random() - 0.5) * 8;
+      const rz = (Math.random() - 0.5) * 8;
+
+      const newIssue = {
+        id: newId,
+        title: title,
+        category: category,
+        islandId: 4,
+        pos: { x: rx, z: rz },
+        upvotes: 1,
+        status: "審核提議中",
+        desc: desc,
+        metrics: [
+          { label: "預估受惠", val: "社區全體" },
+          { label: "連署率", val: "新發起" },
+          { label: "審核階段", val: "階段一" }
+        ]
+      };
+
+      CIVIC_ISSUES.push(newIssue);
+      renderPolicyList();
+      closeProposeModal();
+      showToast("公民提案成功提交！已新增至提案連署池。");
+      
+      // Reset Form
+      document.getElementById('prop-title').value = '';
+      document.getElementById('prop-desc').value = '';
+    }
+
+    function sharePolicy() {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(window.location.href);
+        showToast("議題連結已成功複製至剪貼簿！");
+      } else {
+        showToast("分享連結已準備完成。");
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').innerText = msg;
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+
+    // Initialize App
+    window.onload = () => {
+      init3D();
+      renderPolicyList();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
